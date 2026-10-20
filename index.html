@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연천군정신건강복지센터 연가 관리</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js'></script>
+    
+    <style>
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 1000;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        /* 캘린더 커스텀 스타일 */
+        .fc-event { cursor: pointer; }
+        .fc .fc-button-primary {
+            background-color: #4f46e5 !important;
+            border-color: #4f46e5 !important;
+        }
+        .fc .fc-button-primary:hover {
+            background-color: #4338ca !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-6">
+    <div class="max-w-6xl mx-auto">
+        <!-- 헤더 영역 -->
+        <div class="mb-6 flex justify-between items-end">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">연천군정신건강복지센터 연가 관리</h1>
+                <p class="text-gray-500 mt-2">Since 1995 | 실시간 클라우드 동기화 됨</p>
+            </div>
+        </div>
+
+        <!-- 공지 및 공유 메모장 영역 -->
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-lg font-bold text-gray-700 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"></path></svg>
+                    공유 메모장 (공지사항)
+                </h2>
+                <button onclick="saveMemo()" class="text-sm bg-yellow-100 text-yellow-700 px-3 py-1.5 rounded-lg hover:bg-yellow-200 font-bold transition">
+                    메모 저장하기
+                </button>
+            </div>
+            <textarea id="sharedMemo" class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-yellow-400 min-h-[80px] resize-y text-sm text-gray-700" placeholder="직원들과 공유할 메모나 공지사항을 입력하세요. 저장하면 다른 PC에서도 즉시 보입니다."></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <!-- 직원 등록 폼 -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
+                <h2 class="text-xl font-bold mb-4 text-gray-700">신규 직원 등록</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">이름</label>
+                        <input type="text" id="empName" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-400" placeholder="홍길동">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">총 연가 (일)</label>
+                            <input type="number" id="empTotalDays" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-400" min="0" value="15">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">추가 (시간)</label>
+                            <input type="number" id="empTotalHours" class="w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-400" min="0" max="7" value="0">
+                        </div>
+                    </div>
+                    <button onclick="addEmployee()" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 transition">
+                        등록하기
+                    </button>
+                </div>
+            </div>
+
+            <!-- 연가 현황 테이블 -->
+            <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-xl font-bold mb-4 text-gray-700">직원별 연가 현황</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 border-b">
+                                <th class="p-3 text-sm font-semibold text-gray-600">이름</th>
+                                <th class="p-3 text-sm font-semibold text-gray-600">총 연가</th>
+                                <th class="p-3 text-sm font-semibold text-gray-600">사용 연가</th>
+                                <th class="p-3 text-sm font-semibold text-gray-600">잔여 연가</th>
+                                <th class="p-3 text-sm font-semibold text-gray-600 text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeeTableBody">
+                            <!-- 데이터 렌더링 영역 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 연가 캘린더 영역 -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-10">
+            <h2 class="text-xl font-bold mb-4 text-gray-700">전체 연가 일정표</h2>
+            <div id="calendar" class="min-h-[500px]"></div>
+        </div>
+    </div>
+
+    <!-- 개별 연가 사용 내역 모달창 -->
+    <div id="leaveModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[95vh] flex flex-col">
+            <div class="p-5 border-b flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-800"><span id="modalEmpName"></span> 선생님 연가 내역</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
+            </div>
+            
+            <div class="p-5 overflow-y-auto flex-1">
+                <div class="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+                    <h3 class="font-bold text-sm text-gray-700 mb-3" id="formTitle">새 연가 사용 등록</h3>
+                    <div class="flex flex-col gap-4">
+                        <!-- 날짜 선택 영역 (시작일 ~ 종료일) -->
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">시작일</label>
+                                <input type="date" id="startDate" class="w-full border rounded p-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400">
+                            </div>
+                            <span class="pt-5 text-gray-500 font-bold">~</span>
+                            <div class="flex-1">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">종료일</label>
+                                <input type="date" id="endDate" class="w-full border rounded p-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400">
+                            </div>
+                        </div>
+
+                        <!-- 시간 선택 영역 -->
+                        <div class="grid grid-cols-5 gap-3 items-end">
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">일(Day)</label>
+                                <select id="useDays" class="w-full border rounded p-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400">
+                                    <option value="0">0일</option>
+                                    <script>for(let i=1;i<=15;i++) document.write(`<option value="${i}">${i}일</option>`);</script>
+                                </select>
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">시간(Hour)</label>
+                                <select id="useHours" class="w-full border rounded p-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400">
+                                    <option value="0">0시간</option>
+                                    <script>for(let i=1;i<=8;i++) document.write(`<option value="${i}">${i}시간</option>`);</script>
+                                </select>
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">분(Min)</label>
+                                <select id="useMins" class="w-full border rounded p-2 text-sm outline-none focus:ring-1 focus:ring-indigo-400">
+                                    <option value="0">00분</option>
+                                    <option value="30">30분</option>
+                                </select>
+                            </div>
+                            <div class="col-span-2 flex gap-2">
+                                <button onclick="saveLeaveRecord()" id="saveRecordBtn" class="flex-1 bg-indigo-600 text-white font-bold py-2 rounded hover:bg-indigo-700 text-sm transition">등록</button>
+                                <button onclick="cancelEdit()" id="cancelEditBtn" class="hidden flex-1 bg-gray-500 text-white font-bold py-2 rounded hover:bg-gray-600 text-sm transition">취소</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 내역 리스트 -->
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-gray-100 border-b">
+                            <th class="p-2 font-semibold text-gray-600">사용 기간/날짜</th>
+                            <th class="p-2 font-semibold text-gray-600">차감 시간</th>
+                            <th class="p-2 font-semibold text-gray-600 text-right">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordTableBody">
+                        <!-- 내역 렌더링 영역 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 메시지 -->
+    <div id="toast" class="toast">메시지</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, setDoc, updateDoc, query, orderBy, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAYtw2OUEaGGiR7gkLP2nrY66d42gI91ec",
+            authDomain: "yeoncheon-leave.firebaseapp.com",
+            projectId: "yeoncheon-leave",
+            storageBucket: "yeoncheon-leave.firebasestorage.app",
+            messagingSenderId: "450243392342",
+            appId: "1:450243392342:web:f862a3bbd07b825cea1cf7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let currentEmpId = null;
+        let employeesData = [];
+        let recordsData = [];
+        let editingRecordId = null; 
+        let calendar;
+
+        // 캘린더 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'ko', // 한국어 설정
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,dayGridWeek'
+                },
+                contentHeight: 'auto',
+                events: [],
+                eventClick: function(info) {
+                    showToast(`${info.event.title} - ${info.event.start.toLocaleDateString()} 휴가 일정입니다.`);
+                }
+            });
+            calendar.render();
+        });
+
+        // 캘린더 업데이트 함수
+        function updateCalendar() {
+            if (!calendar) return;
+            calendar.removeAllEvents();
+            
+            recordsData.forEach(record => {
+                const emp = employeesData.find(e => e.id === record.empId);
+                const empName = emp ? emp.name : '알수없음';
+                
+                let startStr = '';
+                let endStr = '';
+                
+                const rawDate = record.dateStr || record.date || '';
+                if (!rawDate) return;
+
+                if (rawDate.includes('~')) {
+                    const parts = rawDate.split('~').map(s => s.trim());
+                    startStr = parts[0];
+                    
+                    // FullCalendar는 종료일을 포함하지 않음 (Exclusive). 따라서 하루를 더해줌
+                    const endDateObj = new Date(parts[1]);
+                    if (!isNaN(endDateObj.getTime())) {
+                        endDateObj.setDate(endDateObj.getDate() + 1);
+                        endStr = endDateObj.toISOString().split('T')[0];
+                    }
+                } else {
+                    startStr = rawDate.trim();
+                }
+
+                // 캘린더 제목에 시간도 함께 표시 (예: 홍길동 (4시간))
+                const timeText = formatTime(record.usedMins);
+                const isFullDay = (record.usedMins % (8 * 60)) === 0 && record.usedMins > 0;
+                let title = `${empName} ${!isFullDay ? '('+timeText+')' : ''}`;
+
+                calendar.addEvent({
+                    id: record.id,
+                    title: title,
+                    start: startStr,
+                    end: endStr || undefined,
+                    allDay: true,
+                    backgroundColor: '#4f46e5',
+                    borderColor: '#4338ca',
+                    textColor: '#ffffff'
+                });
+            });
+        }
+
+        // 시간 포맷
+        window.formatTime = function(totalMinutes) {
+            if (totalMinutes === 0) return "0시간";
+            const days = Math.floor(totalMinutes / (8 * 60));
+            const remainAfterDays = totalMinutes % (8 * 60);
+            const hours = Math.floor(remainAfterDays / 60);
+            const mins = remainAfterDays % 60;
+
+            let result = [];
+            if (days > 0) result.push(`${days}일`);
+            if (hours > 0) result.push(`${hours}시간`);
+            if (mins > 0) result.push(`${mins}분`);
+            return result.join(" ");
+        }
+
+        window.showToast = function(msg) {
+            const toast = document.getElementById("toast");
+            toast.innerText = msg;
+            toast.classList.add("show");
+            setTimeout(() => toast.classList.remove("show"), 3000);
+        }
+
+        // 공유 메모장 실시간 수신
+        onSnapshot(doc(db, "settings", "shared_memo"), (docSnap) => {
+            if (docSnap.exists()) {
+                document.getElementById("sharedMemo").value = docSnap.data().content || "";
+            }
+        });
+
+        window.saveMemo = async function() {
+            const content = document.getElementById("sharedMemo").value;
+            try {
+                await setDoc(doc(db, "settings", "shared_memo"), { 
+                    content: content,
+                    updatedAt: new Date().getTime()
+                }, { merge: true });
+                showToast("메모가 성공적으로 공유되었습니다.");
+            } catch (e) {
+                showToast("오류 발생: " + e.message);
+            }
+        }
+
+        // 직원 목록 실시간 수신
+        onSnapshot(query(collection(db, "employees"), orderBy("createdAt", "desc")), (snapshot) => {
+            employeesData = [];
+            snapshot.forEach((doc) => employeesData.push({ id: doc.id, ...doc.data() }));
+            renderEmployees();
+            updateCalendar(); // 직원 이름이 바뀌거나 맵핑을 위해 달력 갱신
+        });
+
+        // 연가 내역 실시간 수신
+        onSnapshot(collection(db, "leave_records"), (snapshot) => {
+            recordsData = [];
+            snapshot.forEach((doc) => recordsData.push({ id: doc.id, ...doc.data() }));
+            renderEmployees(); 
+            updateCalendar(); // 연가 데이터 변경 시 달력 갱신
+            if(currentEmpId) renderRecords(); 
+        });
+
+        function renderEmployees() {
+            const tbody = document.getElementById("employeeTableBody");
+            tbody.innerHTML = "";
+            
+            let latestTime = 0;
+            let latestEmpId = null;
+
+            employeesData.forEach(emp => {
+                let time = emp.updatedAt || emp.createdAt || 0;
+                if(time > latestTime) {
+                    latestTime = time;
+                    latestEmpId = emp.id;
+                }
+            });
+
+            employeesData.forEach(emp => {
+                const empRecords = recordsData.filter(r => r.empId === emp.id);
+                const usedTotalMins = empRecords.reduce((sum, r) => sum + r.usedMins, 0);
+                
+                const totalMins = emp.totalMins;
+                const remainMins = totalMins - usedTotalMins;
+                
+                const isLatest = (emp.id === latestEmpId && latestTime > 0);
+                const badgeHtml = isLatest ? `<span class="bg-blue-100 text-blue-600 border border-blue-200 text-[10px] px-1.5 py-0.5 rounded-md font-bold ml-2 whitespace-nowrap align-middle">최근 변경</span>` : '';
+
+                const tr = document.createElement("tr");
+                tr.className = "border-b hover:bg-gray-50 transition cursor-pointer";
+                tr.innerHTML = `
+                    <td class="p-3 text-gray-800 font-medium" onclick="openModal('${emp.id}', '${emp.name}')">${emp.name} ${badgeHtml}</td>
+                    <td class="p-3 text-blue-600" onclick="openModal('${emp.id}', '${emp.name}')">${formatTime(totalMins)}</td>
+                    <td class="p-3 text-red-500" onclick="openModal('${emp.id}', '${emp.name}')">${formatTime(usedTotalMins)}</td>
+                    <td class="p-3 font-bold text-gray-800" onclick="openModal('${emp.id}', '${emp.name}')">${formatTime(remainMins)}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="deleteEmployee('${emp.id}')" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200">삭제</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.addEmployee = async function() {
+            const name = document.getElementById("empName").value.trim();
+            const days = parseInt(document.getElementById("empTotalDays").value) || 0;
+            const hours = parseInt(document.getElementById("empTotalHours").value) || 0;
+
+            if (!name) return showToast("이름을 입력해주세요.");
+            
+            const totalMins = (days * 8 * 60) + (hours * 60);
+            
+            try {
+                await addDoc(collection(db, "employees"), {
+                    name: name,
+                    totalMins: totalMins,
+                    createdAt: new Date().getTime(),
+                    updatedAt: new Date().getTime()
+                });
+                document.getElementById("empName").value = "";
+                document.getElementById("empTotalDays").value = "15";
+                document.getElementById("empTotalHours").value = "0";
+                showToast("직원이 등록되었습니다.");
+            } catch (e) {
+                showToast("오류 발생: " + e.message);
+            }
+        }
+
+        window.deleteEmployee = async function(id) {
+            if(confirm("해당 직원과 모든 연가 내역이 삭제됩니다. 계속하시겠습니까?")) {
+                try {
+                    await deleteDoc(doc(db, "employees", id));
+                    const batch = writeBatch(db);
+                    const toDelete = recordsData.filter(r => r.empId === id);
+                    toDelete.forEach(r => batch.delete(doc(db, "leave_records", r.id)));
+                    await batch.commit();
+                    
+                    showToast("삭제되었습니다.");
+                } catch(e) {
+                    showToast("오류 발생: " + e.message);
+                }
+            }
+        }
+
+        window.openModal = function(id, name) {
+            currentEmpId = id;
+            document.getElementById("modalEmpName").innerText = name;
+            cancelEdit(); 
+            document.getElementById("leaveModal").classList.remove("hidden");
+            renderRecords();
+        }
+
+        window.closeModal = function() {
+            document.getElementById("leaveModal").classList.add("hidden");
+            currentEmpId = null;
+            editingRecordId = null;
+        }
+
+        function renderRecords() {
+            const tbody = document.getElementById("recordTableBody");
+            tbody.innerHTML = "";
+            const empRecords = recordsData.filter(r => r.empId === currentEmpId).sort((a,b) => b.createdAt - a.createdAt);
+
+            if(empRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-500">사용 내역이 없습니다.</td></tr>`;
+                return;
+            }
+
+            empRecords.forEach(record => {
+                const displayDate = record.dateStr || record.date || "날짜 미상";
+
+                const tr = document.createElement("tr");
+                tr.className = "border-b hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="p-2 text-gray-700 font-medium">${displayDate}</td>
+                    <td class="p-2 text-red-500">${formatTime(record.usedMins)}</td>
+                    <td class="p-2 text-right">
+                        <button onclick="startEditRecord('${record.id}')" class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 mr-1">수정</button>
+                        <button onclick="deleteRecord('${record.id}')" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200">삭제</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.startEditRecord = function(id) {
+            const record = recordsData.find(r => r.id === id);
+            if(!record) return;
+
+            editingRecordId = id;
+
+            let rawDate = record.dateStr || record.date || "";
+            if (rawDate.includes("~")) {
+                let parts = rawDate.split("~");
+                document.getElementById("startDate").value = parts[0].trim();
+                document.getElementById("endDate").value = parts[1].trim();
+            } else {
+                document.getElementById("startDate").value = rawDate.trim();
+                document.getElementById("endDate").value = rawDate.trim();
+            }
+
+            const days = Math.floor(record.usedMins / (8 * 60));
+            const remain = record.usedMins % (8 * 60);
+            const hours = Math.floor(remain / 60);
+            const mins = remain % 60;
+
+            document.getElementById("useDays").value = days;
+            document.getElementById("useHours").value = hours;
+            document.getElementById("useMins").value = mins;
+
+            document.getElementById("formTitle").innerText = "연가 내역 수정";
+            document.getElementById("saveRecordBtn").innerText = "수정 완료";
+            document.getElementById("saveRecordBtn").classList.replace("bg-indigo-600", "bg-green-600");
+            document.getElementById("saveRecordBtn").classList.replace("hover:bg-indigo-700", "hover:bg-green-700");
+            document.getElementById("cancelEditBtn").classList.remove("hidden");
+        }
+
+        window.cancelEdit = function() {
+            editingRecordId = null;
+            
+            const today = new Date().toISOString().substring(0, 10);
+            document.getElementById("startDate").value = today;
+            document.getElementById("endDate").value = today;
+            
+            document.getElementById("useDays").value = "0";
+            document.getElementById("useHours").value = "0";
+            document.getElementById("useMins").value = "0";
+
+            document.getElementById("formTitle").innerText = "새 연가 사용 등록";
+            document.getElementById("saveRecordBtn").innerText = "등록";
+            document.getElementById("saveRecordBtn").classList.replace("bg-green-600", "bg-indigo-600");
+            document.getElementById("saveRecordBtn").classList.replace("hover:bg-green-700", "hover:bg-indigo-700");
+            document.getElementById("cancelEditBtn").classList.add("hidden");
+        }
+
+        window.saveLeaveRecord = async function() {
+            const startDate = document.getElementById("startDate").value;
+            const endDate = document.getElementById("endDate").value;
+            
+            const days = parseInt(document.getElementById("useDays").value) || 0;
+            const hours = parseInt(document.getElementById("useHours").value) || 0;
+            const mins = parseInt(document.getElementById("useMins").value) || 0;
+
+            const usedMins = (days * 8 * 60) + (hours * 60) + mins;
+
+            if (!startDate) return showToast("시작일을 지정해주세요.");
+            if (usedMins === 0) return showToast("사용할 연가 시간을 선택해주세요.");
+            
+            let dateStr = startDate;
+            if (endDate && startDate !== endDate) {
+                dateStr = `${startDate} ~ ${endDate}`;
+            }
+
+            try {
+                if (editingRecordId) {
+                    await updateDoc(doc(db, "leave_records", editingRecordId), {
+                        dateStr: dateStr,
+                        usedMins: usedMins
+                    });
+                    await updateDoc(doc(db, "employees", currentEmpId), { updatedAt: new Date().getTime() });
+                    showToast("연가 내역이 수정되었습니다.");
+                    cancelEdit(); 
+                } else {
+                    await addDoc(collection(db, "leave_records"), {
+                        empId: currentEmpId,
+                        dateStr: dateStr,
+                        usedMins: usedMins,
+                        createdAt: new Date().getTime()
+                    });
+                    await updateDoc(doc(db, "employees", currentEmpId), { updatedAt: new Date().getTime() });
+                    cancelEdit(); 
+                    showToast("연가가 차감되었습니다.");
+                }
+            } catch (e) {
+                showToast("오류 발생: " + e.message);
+            }
+        }
+
+        window.deleteRecord = async function(id) {
+            if(confirm("이 차감 내역을 삭제하시겠습니까? (연가 시간이 다시 복구됩니다)")) {
+                try {
+                    const record = recordsData.find(r => r.id === id);
+                    const empIdToUpdate = record ? record.empId : currentEmpId;
+
+                    await deleteDoc(doc(db, "leave_records", id));
+                    
+                    if(empIdToUpdate) {
+                        await updateDoc(doc(db, "employees", empIdToUpdate), { updatedAt: new Date().getTime() });
+                    }
+                    
+                    showToast("기록이 삭제되고 연가가 복구되었습니다.");
+                } catch(e) {
+                    showToast("오류 발생: " + e.message);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
